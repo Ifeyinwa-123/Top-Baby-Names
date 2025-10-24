@@ -134,6 +134,7 @@ for g in "${genders_to_process[@]}"; do
 	sort -t, -k3 -nr "$file" \
 	| grep ",${g^^}," \
 	| head -n "$no" \
+	| cut -d, -f1 \
 	| nl -w1 -s": " \
 	| while read line; do
 		echo "$line"
