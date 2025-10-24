@@ -1,0 +1,171 @@
+#!/bin/bash
+
+Help="Usage: bn [<num:1 to 100>] [<assigned gender: f|F|m|M|b|B>]"
+
+Data="us_baby_names"
+
+usage(){
+echo "$Help" >&2
+
+}
+
+help_text(){
+cat <<'EOF'
+
+Overview:
+  bn prints the top <num> baby names for requested gender(s) for years read from stdin.
+
+Usage:
+  bn [<num: 1 to 100>] [<assigned gender: f|F|m|M|b|B>]
+
+Arguments:
+  <num>    Number of top names to print (integer 1..100). Default: 5
+  <gender> Assigned gender: f (female), m (male), b (both). Default: b
+
+Behavior:
+  - Reads years (four-digit) from stdin (whitespace or newline separated).
+  - For each year prints the top names found in $Data (us_baby_names)/<year>* file.
+  - Exit codes:
+      0 - success
+      1 - too many command line arguments
+      2 - bad command line arg format or out of range
+      3 - badly formatted year in stdin
+      4 - no data file for year
+Examples:
+  bn            # default top 5 both genders
+  bn 2          # top 2 both genders
+  bn M <<<1880   # top 5 male names in 1880
+
+EOF
+}
+
+
+if [[ $# -ge 1 && "$1" == "--help" ]]; then
+help_text
+exit 0
+fi
+
+if [[ $# -gt 2 ]]; then
+echo "Too many parameters" >&2
+usage
+exit 1
+fi
+
+
+num=5
+gender="b"
+
+num_regex='^([1-9][0-9]?|100)$'
+gender_regex='^[fFMmBb]$'
+
+
+
+if [[ $# -eq 1 ]]; then
+	if [[ "$1" =~ $num_regex ]]; then
+		num=$1
+
+	elif [[ "$2" =~ $gender_regex ]]; then
+		gender=$1
+	
+	else
+		echo "Bad parameter" >&2
+		usage
+		exit 2
+	fi
+
+elif [[ $# -eq 2 ]]; then
+	if [[ ! "$1" =~ $num_regex ]]; then 
+		echo "Bad first parameter" >&2
+		usage
+		exit 2
+	fi
+
+	if [[ ! "$2" =~ $gender_regex ]];then
+		echo "Bad second parameter" >&2
+		usage
+		exit 2
+	fi	
+	
+	num=$1
+	gender=$2
+
+fi
+
+gender=$(echo "$gender" | tr '[:upper:]' '[:lower:]')
+
+
+
+top(){
+
+local year="$1"
+local gender="$2"
+local no="$3"
+local file
+
+file=$(ls "$Data"/"yob$year"* 2>/dev/null |head -n 1)
+
+if [[ -z "$file" ]]; then
+	echo "No data for $year" >&2
+	exit 4
+fi
+
+
+if [[ "$gender" == "b" ]]; then
+	genders_to_process=("m" "f")
+else
+	genders_to_process=("$gender")
+fi
+
+
+for g in "${genders_to_process[@]}"; do
+	if [[ "$g" == "f" ]]; then 
+		gender_label="female"
+	else 
+		gender_label="male"
+	fi
+
+	if [[ "$no" -eq 1 ]]; then
+		echo "Top ${gender_label} name in ${year}:"
+	else 
+		echo "Top ${no} ${gender_label} names in ${year}:"
+	fi
+
+	echo 
+	sort -t, -k3 -nr "$file" \
+	| grep ",${g^^}," \
+	| head -n "$no" \
+	| nl -w1 -s": " \
+	| while read line; do
+		echo "$line"
+		echo
+	  done
+done
+
+}
+years=()
+
+while read -r token; do
+	[[ -z "$token" ]] && continue
+	if ! [[ "$token" =~ ^[0-9]{4}$ ]]; then
+		echo "Badly formatted year" >&2
+		exit 3
+	fi
+	years+=("$token")
+done
+
+if [[ "${#years[@]}" -eq 0 ]]; then
+	exit 0
+fi
+
+
+for y in "${years[@]}"; do
+	echo "$y"
+	echo
+	top "$y" "$gender" "$num"
+done
+
+exit 0
+
+
+
+
