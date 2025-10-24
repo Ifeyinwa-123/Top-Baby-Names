@@ -1,6 +1,6 @@
 #!/bin/bash
 
-Help="Usage: bn [<num:1 to 100>] [<assigned gender: f|F|m|M|b|B>]"
+Help="Usage: bn [<num: 1 to 100>] [<assigned gender: f|F|m|M|b|B>]"
 
 Data="us_baby_names"
 
@@ -68,20 +68,20 @@ if [[ $# -eq 1 ]]; then
 		gender=$1
 	
 	else
-		echo "Bad parameter" >&2
+		echo "Bad parameter: $1" >&2
 		usage
 		exit 2
 	fi
 
 elif [[ $# -eq 2 ]]; then
 	if [[ ! "$1" =~ $num_regex ]]; then 
-		echo "Bad first parameter" >&2
+		echo "Bad first parameter: $1" >&2
 		usage
 		exit 2
 	fi
 
 	if [[ ! "$2" =~ $gender_regex ]];then
-		echo "Bad second parameter" >&2
+		echo "Bad second parameter: $2" >&2
 		usage
 		exit 2
 	fi	
@@ -118,28 +118,30 @@ fi
 
 
 for g in "${genders_to_process[@]}"; do
-	if [[ "$g" == "f" ]]; then 
-		gender_label="female"
-	else 
+	if [[ "$g" == "f" ]]; then
+	       gender_label="female"
+       else 
 		gender_label="male"
-	fi
-
+ 	fi
 	if [[ "$no" -eq 1 ]]; then
-		echo "Top ${gender_label} name in ${year}:"
+		top_name=$(sort -t, -k3 -nr "$file" \
+				| awk -F, -v gender="${g^^}" '$2 == gender {print $1; exit}')
+		echo "Top ${gender_label} name in ${year}: ${top_name}"
 	else 
 		echo "Top ${no} ${gender_label} names in ${year}:"
-	fi
 
-	echo 
-	sort -t, -k3 -nr "$file" \
-	| grep ",${g^^}," \
-	| head -n "$no" \
-	| cut -d, -f1 \
-	| nl -w1 -s": " \
-	| while read line; do
-		echo "$line"
-		echo
-	  done
+
+		echo 
+		sort -t, -k3 -nr "$file" \
+		| grep ",${g^^}," \
+		| head -n "$no" \
+		| cut -d, -f1 \
+		| nl -w1 -s": " \
+		| while read line; do
+			echo "$line"
+			echo
+		  done
+	fi
 done
 
 }
@@ -148,7 +150,7 @@ years=()
 while read -r token; do
 	[[ -z "$token" ]] && continue
 	if ! [[ "$token" =~ ^[0-9]{4}$ ]]; then
-		echo "Badly formatted year" >&2
+		echo "Badly formatted year: $token" >&2
 		exit 3
 	fi
 	years+=("$token")
@@ -160,8 +162,7 @@ fi
 
 
 for y in "${years[@]}"; do
-	echo "$y"
-	echo
+	
 	top "$y" "$gender" "$num"
 done
 
