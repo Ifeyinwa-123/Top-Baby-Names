@@ -1,0 +1,103 @@
+#!/bin/bash
+#
+# Test framework for the bn script
+
+
+declare -i tc=0     # test case number
+declare -i fails=0  # number of failed cases
+
+############################################
+# Run a single test case
+# Checks return value, stdout, and stderr
+############################################
+test() {
+    ((tc++))
+
+    local COMMAND=$1
+    local EXPECTED_RETURN=$2
+    local STDIN=$3
+    local EXPECTED_STDOUT=$4
+    local EXPECTED_STDERR=$5
+
+    # --- Check Return Value ---
+    $COMMAND <<< "$STDIN" >/dev/null 2>/dev/null
+    local ACTUAL_RETURN=$?
+
+    if [[ "$ACTUAL_RETURN" -ne "$EXPECTED_RETURN" ]]; then
+        echo " Test $tc Failed (Return Code)"
+        echo "   Command: $COMMAND"
+        echo "   Expected Return: $EXPECTED_RETURN"
+        echo "   Actual Return:   $ACTUAL_RETURN"
+        fails=$fails+1
+        return 1
+    fi
+
+    # --- Check STDOUT ---
+    local ACTUAL_STDOUT
+    ACTUAL_STDOUT=$($COMMAND <<< "$STDIN" 2>/dev/null)
+
+    if [[ "$ACTUAL_STDOUT" != "$EXPECTED_STDOUT" ]]; then
+        echo "	 Test $tc Failed (STDOUT)"
+        echo "   Command: $COMMAND"
+        echo "   Expected:"
+        echo "-----"
+        echo "$EXPECTED_STDOUT"
+        echo "-----"
+        echo "   Got:"
+        echo "-----"
+        echo "$ACTUAL_STDOUT"
+        echo "-----"
+        fails=$fails+1
+        return 2
+    fi
+
+    # --- Check STDERR ---
+    local ACTUAL_STDERR
+    ACTUAL_STDERR=$($COMMAND <<< "$STDIN" 2>&1 >/dev/null)
+
+    if [[ "$ACTUAL_STDERR" != "$EXPECTED_STDERR" ]]; then
+        echo "   Test $tc Failed (STDERR)"
+        echo "   Command: $COMMAND"
+        echo "   Expected:"
+        echo "-----"
+        echo "$EXPECTED_STDERR"
+        echo "-----"
+        echo "   Got:"
+        echo "-----"
+        echo "$ACTUAL_STDERR"
+        echo "-----"
+        fails=$fails+1
+        return 3
+    fi
+
+    echo "✅ Test $tc Passed"
+    return 0
+}
+
+##########################################
+# TEST CASES
+##########################################
+
+# 1. Simple success
+test './bn 1 m' 0 '1890' 'Top male name in 1890: John' ''
+
+# 2. Multi-line success
+test './bn 1 b' 0 '1890' 'Top male name in 1890: John
+Top female name in 1890: Mary' ''
+
+# 3. Badly formatted year
+test './bn' 3 '18800' '' 'Badly formatted year: 18800'
+
+# 4. Bad second parameter with usage message
+test './bn 100 X' 2 '' '' 'Bad second parameter: X
+Usage: bn [<num: 1 to 100>] [<assigned gender: f|F|m|M|b|B>]'
+
+##########################################
+# SUMMARY
+##########################################
+echo
+echo "Total Tests: $tc"
+echo "Failed:      $fails"
+
+exit $fails
+
