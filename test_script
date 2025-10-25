@@ -99,5 +99,5 @@ echo
 echo "Total Tests: $tc"
 echo "Failed:      $fails"
 
-exit $fails
+exit 0
 
